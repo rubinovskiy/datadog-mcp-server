@@ -259,6 +259,58 @@ def datadog_set_case_status(key: str, status: str) -> Dict[str, Any]:
     return _make_request("POST", endpoint, body)
 
 
+def datadog_assign_case(key: str, assignee_id: str) -> Dict[str, Any]:
+    """
+    Assign a Datadog case to a user.
+
+    Args:
+        key: Case key (e.g., "CONTENT-718")
+        assignee_id: Assignee's Datadog user UUID (e.g., "ec34f974-2c51-11ee-bc35-7a3adbb5cabc")
+
+    Returns:
+        Updated case payload (includes relationships.assignee).
+
+    Raises:
+        DatadogAPIError: If the API request fails or the user UUID is invalid.
+
+    Example:
+        >>> datadog_assign_case("CONTENT-2401", "ec34f974-2c51-11ee-bc35-7a3adbb5cabc")
+    """
+    body = {
+        "data": {
+            "type": "case",
+            "attributes": {
+                "assignee_id": assignee_id
+            }
+        }
+    }
+    endpoint = f"/api/v2/cases/{key}/assign"
+    return _make_request("POST", endpoint, body)
+
+
+def datadog_unassign_case(key: str) -> Dict[str, Any]:
+    """
+    Remove the current assignee from a Datadog case.
+
+    Args:
+        key: Case key (e.g., "CONTENT-718")
+
+    Returns:
+        Updated case payload (relationships.assignee is null after this call).
+
+    Raises:
+        DatadogAPIError: If the API request fails or the case is not found.
+    """
+    body = {
+        "data": {
+            "type": "case",
+            "attributes": {}
+        }
+    }
+    endpoint = f"/api/v2/cases/{key}/unassign"
+    return _make_request("POST", endpoint, body)
+
+
 def datadog_link_cases(
     parent_key: str,
     child_key: str,
@@ -327,6 +379,8 @@ def main():
         print("  Set status:  python datadog_tools.py status <case_key> <status>")
         print("               (status: IN_PROGRESS, OPEN, or CLOSED)")
         print("  Link cases:  python datadog_tools.py link <parent_key> <child_key> [relationship]")
+        print("  Assign:      python datadog_tools.py assign <case_key> <assignee_uuid>")
+        print("  Unassign:    python datadog_tools.py unassign <case_key>")
         sys.exit(1)
 
     command = sys.argv[1]
@@ -373,6 +427,25 @@ def main():
             relationship = sys.argv[4] if len(sys.argv) > 4 else "DUPLICATES"
 
             result = datadog_link_cases(parent_key, child_key, relationship)
+            print(json.dumps(result, indent=2))
+
+        elif command == "assign":
+            if len(sys.argv) < 4:
+                print("Error: Missing case key and/or assignee UUID")
+                sys.exit(1)
+
+            case_key = sys.argv[2]
+            assignee_id = sys.argv[3]
+            result = datadog_assign_case(case_key, assignee_id)
+            print(json.dumps(result, indent=2))
+
+        elif command == "unassign":
+            if len(sys.argv) < 3:
+                print("Error: Missing case key")
+                sys.exit(1)
+
+            case_key = sys.argv[2]
+            result = datadog_unassign_case(case_key)
             print(json.dumps(result, indent=2))
 
         else:
